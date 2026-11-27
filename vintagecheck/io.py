@@ -1,7 +1,7 @@
 """File and ALFRED observations adapters."""
 import csv
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from . import instant, number
@@ -41,7 +41,7 @@ def alfred_observations(series, payload, release_times):
         if stamp is None:
             raise ValueError(f"Missing verified release time for {start}")
         clock = instant(stamp)
-        if clock.date() != start:
+        if datetime.fromisoformat(str(stamp).replace("Z", "+00:00")).date() != start:
             raise ValueError("Provide the timestamp in the release date's local timezone")
         result.append(dict(series=series, period=period, value=str(number(item["value"])),
                            available_at=clock.isoformat(), realtime_start=str(start),

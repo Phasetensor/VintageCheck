@@ -1,7 +1,7 @@
 """Point-in-time reconstruction and temporal evidence auditing."""
 from bisect import bisect_right
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
 import json
@@ -11,7 +11,7 @@ def instant(value):
     timestamp = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     if timestamp.utcoffset() is None:
         raise ValueError("Timestamp requires an explicit UTC offset")
-    return timestamp
+    return timestamp.astimezone(timezone.utc)
 
 
 def number(value):
@@ -30,7 +30,10 @@ def records(rows):
 class VintageIndex:
     """Immutable-by-convention release history indexed by series and period."""
 
-    def __init__(self, releases):
+    def __init__(self, releases, *, policy="operator"):
+        if policy not in ("operator","public"):
+            raise ValueError("Unsupported availability policy")
+        self.policy = policy
         self._groups = defaultdict(dict)
         for raw in records(releases):
             row = dict(raw)
@@ -38,8 +41,14 @@ class VintageIndex:
             if not all(isinstance(part, str) and part.strip() for part in key):
                 raise ValueError("Release series and period must be nonempty strings")
             stamp = instant(row["available_at"])
-            received = row.get("received_at")
-            effective = max(stamp, instant(received)) if received else stamp
+            clocks = [stamp]
+            for name in ("received_at", "processed_at"):
+                if row.get(name):
+                    clock = instant(row[name])
+                    if clock < clocks[-1]:
+                        raise ValueError(f"{name} precedes its upstream clock")
+                    clocks.append(clock)
+            effective = clocks[-1] if policy == "operator" else stamp
             if stamp in self._groups[key]:
                 raise ValueError(f"Duplicate release for {key} at {stamp}")
             row.update(value=str(number(row["value"])), available_at=stamp.isoformat(),
@@ -82,9 +91,9 @@ class VintageIndex:
         return changes
 
 
-def audit(releases, decisions, threshold):
+def audit(releases, decisions, threshold=None):
     """PASS means accessible under the supplied clock and history."""
-    threshold = number(threshold)
+    threshold = number(threshold) if threshold is not None else None
     index = releases if isinstance(releases, VintageIndex) else VintageIndex(releases)
     ordered = []
     for n, raw in enumerate(records(decisions), 1):
@@ -108,8 +117,8 @@ def audit(releases, decisions, threshold):
             verdict, status = "PASS", "current"
         else:
             verdict, status = "PASS", "older_available"
-        used_buy = number(used["value"]) > threshold if used else None
-        asof_buy = number(latest["value"]) > threshold if latest else None
+        used_buy = number(used["value"]) > threshold if used and threshold is not None else None
+        asof_buy = number(latest["value"]) > threshold if latest and threshold is not None else None
         results.append(dict(row, decision_row=n, status=status, verdict=verdict,
                             used_value=used["value"] if used else None,
                             asof_available_at=latest["available_at"] if latest else None,

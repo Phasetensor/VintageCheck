@@ -1,0 +1,55 @@
+name: Consolidation evidence
+on:
+  push:
+    branches: [scientific-consolidation]
+    paths: ['vintagecheck/**', 'benchmarks/**', '.github/workflows/science.yml', 'tests/**']
+permissions:
+  contents: read
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [python, pandas, pyarrow, duckdb, polars]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install '.[large,tables]'
+      - run: python -m benchmarks.consolidation --backend ${{ matrix.backend }}
+      - run: cat benchmarks/evidence/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: measurements-${{ matrix.backend }}
+          path: benchmarks/evidence/
+  validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install '.[large,tables,calendars]' coverage hypothesis ruff mypy build twine scikit-learn curvemetric==1.5.0
+      - run: python -m benchmarks.case_studies
+      - run: cat benchmarks/evidence/cases.json
+      - run: coverage run --source=vintagecheck --branch -m unittest discover -s tests -v && coverage json -o benchmarks/evidence/coverage.json
+      - run: python -m build && python -m twine check --strict dist/* && sha256sum dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: case-studies-and-coverage
+          path: benchmarks/evidence/
+      - run: |
+          python - <<'PY'
+          import json
+          c=json.load(open("benchmarks/evidence/coverage.json"))
+          for k,v in c["files"].items(): print(k, v["missing_lines"],v["missing_branches"])
+          t=c["totals"];print(t)
+          assert t["covered_lines"]/t["num_statements"] >= .95
+          assert t["covered_branches"]/t["num_branches"] >= .90
+          PY
+      - if: always()
+        run: ruff check vintagecheck && ruff format --check vintagecheck
+      - if: always()
+        run: mypy --ignore-missing-imports --check-untyped-defs vintagecheck

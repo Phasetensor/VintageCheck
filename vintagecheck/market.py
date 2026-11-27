@@ -10,30 +10,59 @@ from . import instant, number
 def audit_universe(memberships, holdings, at, *, complete=False):
     """Compare an entire claimed universe with half-open membership intervals."""
     when = instant(at)
-    expected = set()
+    effective, expected, hidden = set(), set(), set()
     for row in memberships:
         start = instant(row["start"])
         end = instant(row["end"]) if row.get("end") else None
         if end is not None and end <= start:
             raise ValueError("Membership end must follow start")
+        asset = row.get("security_id") or row["asset"]
         if start <= when and (end is None or when < end):
-            expected.add(row["asset"])
+            effective.add(asset)
+        known = max((instant(row[k]) for k in ("announced_at","available_at") if row.get(k)), default=start)
+        removal = instant(row["end_available_at"]) if row.get("end_available_at") else end
+        if start <= when and known <= when and (end is None or end > when or removal > when):
+            expected.add(asset)
+        elif asset in effective and known > when:
+            hidden.add(asset)
     actual = set(holdings)
     omitted = sorted(expected - actual)
     extra = sorted(actual - expected)
     verdict = "UNKNOWN"
     if omitted or (complete and extra):
         verdict = "FAIL"
-    elif complete:
+    elif complete and not hidden:
         verdict = "PASS"
-    return dict(verdict=verdict, omitted=omitted, unmatched=extra)
+    return dict(verdict=verdict, omitted=omitted, unmatched=extra, effective=sorted(effective), knowable=sorted(expected), declared=sorted(actual))
 
 
-def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, *, tolerance="0.000001"):
+def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, *, tolerance="0.000001", complete=None, currency=None, share_basis=None):
     """Validate backward price adjustment in a supplied complete single-currency ledger."""
     start, cutoff = instant(price_at), instant(asof)
     if cutoff < start or number(tolerance) < 0:
         raise ValueError("Invalid adjustment window or tolerance")
+    def unknown(reason):
+        return dict(expected=None, action_ids=[], verdict="UNKNOWN", reason=reason)
+    if complete is False:
+        return unknown("incomplete_ledger")
+    selected = {}
+    for row in actions:
+        if row["asset"] != asset:
+            continue
+        if not row.get("available_at"):
+            return unknown("missing_availability")
+        known = max(instant(row.get("announced_at") or row["available_at"]), instant(row["available_at"]))
+        if known > cutoff:
+            continue
+        event = row["id"]
+        if event in selected:
+            older = selected[event]
+            if "revision" not in row or "revision" not in older or row["revision"] == older["revision"]:
+                raise ValueError("Ambiguous action revision")
+            if row["revision"] < older["revision"]:
+                continue
+        selected[event] = row
+    actions = sorted(selected.values(),key=lambda r:(instant(r["effective_at"]),r["id"]))
     factor = Decimal(1)
     used, seen = [], set()
     for row in actions:
@@ -51,6 +80,10 @@ def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, 
                 raise ValueError("Split ratio must be positive")
             factor /= ratio
         elif row["kind"] == "dividend":
+            if row.get("previous_close") is None or row.get("cash") is None:
+                return unknown("missing_reference")
+            if (currency and row.get("currency") != currency) or (share_basis and row.get("share_basis") != share_basis):
+                return unknown("incompatible_reference")
             previous, cash = number(row["previous_close"]), number(row["cash"])
             if not 0 <= cash < previous:
                 raise ValueError("Dividend must be smaller than the positive reference close")
@@ -60,7 +93,7 @@ def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, 
         used.append(row["id"])
     expected = number(raw_close) * factor
     return dict(expected=str(expected), action_ids=sorted(used),
-                verdict="PASS" if abs(expected-number(adjusted_close)) <= number(tolerance) else "FAIL")
+                verdict=("PASS" if complete is True else "UNKNOWN") if abs(expected-number(adjusted_close)) <= number(tolerance) else ("FAIL" if complete is True else "UNKNOWN"))
 
 
 def release_calendar(events, asof):
@@ -75,7 +108,11 @@ def release_calendar(events, asof):
             raise ValueError("Ambiguous schedule revision")
         seen.add((event, known))
         if known <= when and (event not in revisions or known > revisions[event][0]):
-            revisions[event] = known, dict(row)
+            visible = dict(row)
+            for field in ("actual_at", "received_at", "ingested_at"):
+                if visible.get(field) and instant(visible[field]) > when:
+                    visible.pop(field)
+            revisions[event] = known, visible
     active = [r for _, r in revisions.values() if not r.get("cancelled", False)]
     return sorted(active, key=lambda r: (instant(r["scheduled_at"]), r["id"]))
 
