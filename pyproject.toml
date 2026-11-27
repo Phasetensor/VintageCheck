@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vintagecheck"
-version = "0.2.0"
+version = "0.3.0"
 description = "Point-in-time audits for backtests with explicit release lineage"
 requires-python = ">=3.9"
 
@@ -12,6 +12,8 @@ readme = "README.md"
 license = "Apache-2.0"
 
 [project.optional-dependencies]
+calendars = ["exchange-calendars>=4.5"]
+large = ["polars>=1.34", "duckdb>=1.2", "pyarrow>=12"]
 tables = ["pandas>=1.5", "pyarrow>=12"]
 
 [project.urls]

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+Add the fifteen research and market-data auditing capabilities documented in docs/advanced.md. Existing vintage audit entry points remain available.
+
 ## 0.2.0
 
 - Add receipt-aware vintage lookup, historical snapshots and linked revision deltas.

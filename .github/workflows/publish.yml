@@ -18,6 +18,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install ".[tables]"
+      - if: matrix.python == '3.12'
+        run: python -m pip install ".[large,calendars]"
+      - run: python -m examples.research_audit
       - run: python -m unittest discover -s tests -v
       - run: python -m benchmarks.scale --pandas
   build:
@@ -61,7 +64,7 @@ jobs:
           if gh release view "v$version" >/dev/null 2>&1; then
             if [ "$(git ls-remote origin "refs/tags/v$version" | cut -f1)" != "$GITHUB_SHA" ]; then exit 0; fi
           else
-            gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "VintageCheck $version" --notes "Point-in-time vintage auditing with a Python API, command-line interface and reproducible US GDP example."
+            gh release create "v$version" dist/* --target "$GITHUB_SHA" --title "VintageCheck $version" --notes "Historical universes, corporate actions, feature lineage, temporal folds, research reports and streaming Parquet audit backends."
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
   publish:
@@ -109,6 +112,10 @@ jobs:
           PY
           version=$(basename dist/*.tar.gz .tar.gz)
           cd /tmp
-          python -m pip install --index-url https://pypi.org/simple "vintagecheck==${version#vintagecheck-}"
+          for delay in 0 10 20 30 60; do
+            sleep "$delay"
+            python -m pip install --no-cache-dir --index-url https://pypi.org/simple "vintagecheck==${version#vintagecheck-}" && break
+          done
+          python -c "from vintagecheck.large import audit_parquet; from vintagecheck.market import MarketSessions; from vintagecheck.research import audit_backtest"
           vintagecheck "$GITHUB_WORKSPACE/examples/releases.csv" "$GITHUB_WORKSPACE/examples/decisions.csv" --threshold 1.5 > audit.json
           python -c "import json; r=json.load(open('audit.json')); assert r['summary']['FAIL']==1 and r['first_future_row']==1"

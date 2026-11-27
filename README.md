@@ -20,3 +20,7 @@ Use VintageIndex(releases).snapshot(decision_at) to reconstruct a panel, and
 VintageIndex(releases).revisions(series, period) to inspect revision deltas.
 See [methodology](docs/methodology.md) for availability, provenance, ALFRED input
 requirements and reproducible benchmarks.
+
+## Research audits
+
+Version 0.3 adds historical universe and price-adjustment audits, feature lineage, temporal validation, exchange calendars, reproducible reports and streaming Parquet backends. See the [15-module API guide](docs/advanced.md) and [worked audit](examples/research_audit.py).

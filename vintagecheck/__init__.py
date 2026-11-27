@@ -121,3 +121,5 @@ def audit(releases, decisions, threshold):
     summary.update(records=len(results), percent_pass=100 * counts["PASS"] / len(results) if results else None)
     first = next((r["decision_row"] for r in results if r["verdict"] == "FAIL"), None)
     return {"first_future_row": first, "decisions": results, "summary": summary}
+
+__version__ = "0.3.0"
