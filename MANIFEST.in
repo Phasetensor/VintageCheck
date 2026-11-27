@@ -1,2 +1,5 @@
 include examples/*.csv
 include tests/*.py
+include CITATION.cff CHANGELOG.md
+recursive-include benchmarks *.py *.json
+recursive-include docs *.md

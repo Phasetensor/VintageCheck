@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "Please cite this software when using VintageCheck."
+title: VintageCheck
+type: software
+authors:
+  - name: PhaseTensor
+version: 0.2.0
+license: Apache-2.0
+repository-code: "https://github.com/Phasetensor/VintageCheck"

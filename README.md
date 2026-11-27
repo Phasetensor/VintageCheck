@@ -10,3 +10,13 @@ From the project root, run:
 Python API: audit(releases, decisions, threshold) in vintagecheck accepts iterables of mappings. The rule buys when value > threshold. Times equal to the decision time are eligible. Use the actual feed availability time if ingestion latency matters. The report distinguishes future, current and older_available releases and gives the earliest future use as a one-based decision record number. Missing historical observations produce null signals.
 
 The offline example uses annualized US real GDP growth for 2024 Q1 from the BEA [advance estimate](https://www.bea.gov/news/2024/gross-domestic-product-first-quarter-2024-advance-estimate) and [second estimate](https://www.bea.gov/news/2024/gross-domestic-product-first-quarter-2024-second-estimate-and-corporate-profits). Both releases were issued at 08:30 EDT. Decisions and threshold are synthetic. On May 1 the available 1.6% triggered a buy while the later 1.3% did not. On May 31 the second estimate was available.
+
+## Additional interfaces
+
+Install with `pip install "vintagecheck[tables]"` for DataFrame and Parquet support.
+Pass DataFrames directly to audit or pass .parquet paths to the CLI. Use --format csv
+for a decision table. JSON includes verdict totals and evidence for each decision.
+Use VintageIndex(releases).snapshot(decision_at) to reconstruct a panel, and
+VintageIndex(releases).revisions(series, period) to inspect revision deltas.
+See [methodology](docs/methodology.md) for availability, provenance, ALFRED input
+requirements and reproducible benchmarks.

@@ -17,8 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install .
+      - run: python -m pip install ".[tables]"
       - run: python -m unittest discover -s tests -v
+      - run: python -m benchmarks.scale --pandas
   build:
     needs: tests
     runs-on: ubuntu-22.04
@@ -76,3 +77,38 @@ jobs:
           name: distributions
           path: dist
       - uses: pypa/gh-action-pypi-publish@release/v1
+  verify:
+    runs-on: ubuntu-22.04
+    needs: publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify PyPI hashes and run published CLI outside checkout
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib, time, urllib.request
+          import tomllib
+          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(f"https://pypi.org/pypi/vintagecheck/{version}/json", timeout=10) as r:
+                      remote = {f["filename"]: f["digests"]["sha256"] for f in json.load(r)["urls"]}
+                  break
+              except OSError:
+                  if attempt == 11:
+                      raise
+                  time.sleep(5)
+          local = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in pathlib.Path("dist").iterdir()}
+          assert local == remote and len(local) == 2
+          PY
+          version=$(basename dist/*.tar.gz .tar.gz)
+          cd /tmp
+          python -m pip install --index-url https://pypi.org/simple "vintagecheck==${version#vintagecheck-}"
+          vintagecheck "$GITHUB_WORKSPACE/examples/releases.csv" "$GITHUB_WORKSPACE/examples/decisions.csv" --threshold 1.5 > audit.json
+          python -c "import json; r=json.load(open('audit.json')); assert r['summary']['FAIL']==1 and r['first_future_row']==1"

@@ -1,0 +1,24 @@
+{
+  "python": "3.9.6",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "results": [
+    {
+      "size": 100,
+      "build_seconds": 0.0004785829999999977,
+      "query_seconds": 4.754200000000458e-05,
+      "index_peak_bytes": 84974
+    },
+    {
+      "size": 1000,
+      "build_seconds": 0.005031500000000001,
+      "query_seconds": 0.0005108330000000022,
+      "index_peak_bytes": 832877
+    },
+    {
+      "size": 10000,
+      "build_seconds": 0.050491125,
+      "query_seconds": 0.006136792000000002,
+      "index_peak_bytes": 8698070
+    }
+  ]
+}
