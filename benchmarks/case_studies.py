@@ -2,7 +2,8 @@
 from importlib.metadata import version
 import json
 from pathlib import Path
-from math import exp
+from math import exp, log
+from datetime import date, timedelta
 import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
@@ -11,6 +12,38 @@ from vintagecheck import VintageIndex, audit
 from vintagecheck.io import read_rows
 from vintagecheck.market import audit_universe
 from vintagecheck.research import audit_pipeline, information_set, dataset_version
+
+
+def treasury_curve():
+    # Rates are historical observations. Publication and receipt clocks below
+    # are scenario assumptions; the source supplies a date, not an arrival log.
+    source="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?field_tdr_date_value_month=202405&type=daily_treasury_bill_rates"
+    quotes=[]
+    for row in read_rows("examples/treasury_quotes.csv"):
+        day=date.fromisoformat(row["date"])+timedelta(days=1)
+        quotes.append(dict(series="TBILL",period=row["weeks"],value=row["bank_discount_percent"],
+                           source=source,observation_date=row["date"],unit="percent",currency="USD",
+                           convention="bank_discount_ACT360",available_at=f"{day}T00:00:00Z",
+                           received_at=f"{day}T00:05:00Z",id=row["date"]+"-"+row["weeks"]))
+    index=VintageIndex(quotes)
+    keys=[("TBILL",str(weeks)) for weeks in (4,13,26)]
+    years=[7*int(weeks)/365 for _,weeks in keys]
+    results=[]
+    times=["2024-05-02T12:00:00Z","2024-05-03T12:00:00Z"]
+    curves=[]
+    for at in times:
+        rows=[r["evidence"] for r in information_set(index,at,keys)]
+        dfs=[1-float(r["value"])/100*int(r["period"])*7/360 for r in rows]
+        rates=[-log(df)/year for df,year in zip(dfs,years)]
+        curve=Curve.from_zero_rates(years,rates)
+        curves.append(curve)
+        pv=float(present_value(curve,[years[-1]],[100]))
+        assert abs(pv-100*dfs[-1])<1e-10
+        results.append(dict(ids=[r["id"] for r in rows],pv=pv))
+    assert all(x.startswith("2024-05-01") for x in results[0]["ids"])
+    return dict(source=source,clock_policy="synthetic next UTC day plus five-minute receipt",valuation=times[0],
+                eligible=results[0],contaminated=results[1],zero_bp=compare(*curves,years)["metrics"]["zero_bp"],
+                manifest=dataset_version(quotes,"id"))
 
 
 def run():
@@ -51,7 +84,7 @@ def run():
     valid, dirty=curve(t1),curve(t2)
     pvs=[float(present_value(c,[5],[100])) for c in (valid,dirty)]
     assert abs(pvs[0]-100*exp(-5*.025))<1e-9 and abs(pvs[1]-100*exp(-5*.04))<1e-9
-    return dict(macro=dict(data="BEA real; decisions synthetic",report=macro),
+    return dict(historical_curve=treasury_curve(),macro=dict(data="BEA real; decisions synthetic",report=macro),
                 universe=dict(data="synthetic",audit=selection,historical_mean=historic,current_mean=current),
                 ml=dict(data="synthetic",train=12,test=8,results=ml),
                 curve=dict(data="synthetic",provider="curvemetric "+version("curvemetric"),eligible_pv=pvs[0],

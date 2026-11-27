@@ -15,9 +15,15 @@ def parquet_batches(
 ) -> Iterator[list[Row]]:
     if batch_size < 1:
         raise ValueError("Expected a positive batch size")
-    if backend == "pyarrow":
-        import pyarrow.parquet as pq
+    if backend not in ("pyarrow", "polars", "duckdb"):
+        raise ValueError("Unknown backend")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
+    for field in pq.read_schema(path):
+        if pa.types.is_timestamp(field.type) and field.type.unit == "ns":
+            raise ValueError("Normalize nanosecond timestamps before auditing")
+    if backend == "pyarrow":
         with pq.ParquetFile(path) as file:
             for batch in file.iter_batches(batch_size=batch_size):
                 yield batch.to_pylist()
@@ -29,15 +35,13 @@ def parquet_batches(
             columns = [field[0] for field in cursor.description]
             while batch := cursor.fetchmany(batch_size):
                 yield [dict(zip(columns, row)) for row in batch]
-    elif backend == "polars":
+    else:
         import polars as pl
 
         for frame in pl.scan_parquet(path).collect_batches(
             chunk_size=batch_size, maintain_order=True
         ):
             yield frame.to_dicts()
-    else:
-        raise ValueError("Unknown backend")
 
 
 def audit_parquet(

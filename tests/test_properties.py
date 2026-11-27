@@ -44,3 +44,27 @@ class Oracles(unittest.TestCase):
             allowed=[i for i,lag in enumerate(lags) if set(range(i,i+lag+1)).isdisjoint(range(cut,cut+lags[cut]+2))]
             self.assertEqual(fold["train"],allowed)
         check()
+
+    @unittest.skipUnless(all(find_spec(k) for k in ("duckdb","polars","pyarrow")), "Parquet integration")
+    def test_timestamp_decimal_nulls_and_batch_order(self):
+        from decimal import Decimal
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        from vintagecheck.large import audit_parquet, parquet_batches
+        base=datetime(2024,1,1,tzinfo=timezone.utc)
+        clocks=[base+timedelta(microseconds=i) for i in (2,1,0)]
+        with TemporaryDirectory() as folder:
+            p=Path(folder)/"data.parquet"
+            pq.write_table(pa.table(dict(series=["X"]*3,period=["P"]*3, used_available_at=[clocks[0], None, clocks[0]],
+                                         decision_at=clocks,weight=[Decimal("0.05")]*3)),p)
+            for backend in ("pyarrow","duckdb","polars"):
+                reports=list(audit_parquet([dict(series="X",period="P",available_at=clocks[0],value=1)],p,0,
+                                           backend=backend,batch_size=1))
+                self.assertEqual(summarize_batches(reports),dict(PASS=1,FAIL=1,UNKNOWN=1,records=3,first_future_row=3))
+                self.assertEqual(reports[0]["decisions"][0]["weight"], Decimal(".05"))
+            pq.write_table(pa.table({"clock":pa.array([1],type=pa.timestamp("ns",tz="UTC"))}),p)
+            for backend in ("pyarrow","duckdb","polars"):
+                with self.assertRaises(ValueError):
+                    list(parquet_batches(p,backend))

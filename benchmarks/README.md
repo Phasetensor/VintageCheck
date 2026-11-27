@@ -16,3 +16,5 @@ The macro study uses BEA estimates and synthetic decisions. The universe and ML 
 ![Runtime, memory and throughput](evidence/scaling.svg)
 ![Revision, survivorship, leakage and reconstruction diagnostics](evidence/scientific.svg)
 ![Temporal folds, lineage and provider comparison](evidence/validation.svg)
+
+The second CurveMetric experiment uses official US Treasury 4-, 13- and 26-week bank discount rates from May 1 and May 2, 2024. It converts each to a discount factor using nominal tenor days (weeks × 7), D = 1 − (discount rate/100) days/360, then to a continuously compounded ACT/365 zero rate. Nominal maturities model a constant-tenor comparison, not individual CUSIP settlement. Vendor receipt is unobserved. The hypothetical operator accepts the previous date's observations at 00:05 UTC the following day. The later curve is deliberately substituted at the earlier valuation instant. [Treasury historical quotes](https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?field_tdr_date_value_month=202405&type=daily_treasury_bill_rates)

@@ -76,7 +76,7 @@ jobs:
       - if: always()
         run: mypy --ignore-missing-imports --check-untyped-defs vintagecheck
   core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:

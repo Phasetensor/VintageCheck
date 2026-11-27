@@ -16,7 +16,7 @@ def main() -> None:
     )
     parser.add_argument("releases")
     parser.add_argument("decisions")
-    parser.add_argument("--threshold", required=True)
+    parser.add_argument("--threshold", help="Optional signal threshold")
     parser.add_argument("--format", choices=("json", "csv"), default="json")
     args = parser.parse_args()
     try:

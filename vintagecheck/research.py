@@ -225,6 +225,8 @@ def audit_backtest(
                 if row.get("decision_at")
                 else "UNKNOWN"
             )
+        if any(v not in ("PASS", "FAIL", "UNKNOWN") for v in controls.values()):
+            raise ValueError("Invalid control verdict")
         row["controls"] = controls
         verdicts = controls.values()
         row["verdict"] = next(v for v in ("FAIL", "UNKNOWN", "PASS") if v in verdicts)
@@ -394,6 +396,7 @@ def compare_providers(
     if min(tol, rel) < 0:
         raise ValueError("Negative tolerance")
     result = []
+    required_metadata = tuple(required_metadata)
     for s, p in keys:
         a, b = left.asof(s, p, at), right.asof(s, p, at)
         diff = number(a["value"]) - number(b["value"]) if a and b else None
@@ -401,7 +404,7 @@ def compare_providers(
         if a and b:
             fields.update(
                 k
-                for k in ("currency", "unit", "frequency", "convention")
+                for k in ("currency", "unit", "frequency", "convention", "security_id")
                 if k in a or k in b
             )
         mismatches = sorted(
