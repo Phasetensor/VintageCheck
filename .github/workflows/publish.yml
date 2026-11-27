@@ -7,6 +7,8 @@ on:
 permissions:
   contents: read
 jobs:
+  science:
+    uses: ./.github/workflows/science.yml
   tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -42,8 +44,8 @@ jobs:
           name: distributions
           path: dist/
   release:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    needs: [build, science]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -92,6 +94,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify tagged commit and GitHub asset bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(basename dist/*.tar.gz .tar.gz)
+          tag="v${version#vintagecheck-}"
+          git fetch --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+          test "$(git rev-list -1 "$tag")" = "$GITHUB_SHA"
+          gh release download "$tag" --dir /tmp/release-assets
+          for path in dist/*; do cmp "$path" "/tmp/release-assets/$(basename "$path")"; done
       - name: Verify PyPI hashes and run published CLI outside checkout
         run: |
           python - <<'PY'

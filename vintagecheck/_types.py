@@ -1,4 +1,5 @@
 """Types shared by the published row-oriented APIs."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Union

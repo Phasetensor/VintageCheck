@@ -29,3 +29,7 @@ From a source checkout run `python -m examples.research_audit`. It prints the
 reproducible report for a decision whose economic vintage is eligible while the
 normalizer's fit contains future data. The output includes manifests for releases,
 decisions and the pipeline definition.
+
+For the consolidation candidate, see [module evidence](traceability.md) and [methods](methodology.md).
+Corporate-action callers must explicitly attest completeness with complete=True to obtain a definitive result.
+Dataset manifests now carry format=2. Supply original data to compare versions across fingerprint formats.

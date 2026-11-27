@@ -4,3 +4,5 @@ include CITATION.cff CHANGELOG.md
 recursive-include benchmarks *.py *.json
 recursive-include docs *.md
 include examples/research_audit.py
+include ROADMAP.md
+recursive-include benchmarks *.md *.csv *.svg

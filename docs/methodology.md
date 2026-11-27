@@ -54,3 +54,13 @@ offsets and counts before normalizing. The test suite exercises pagination with
 recorded-format synthetic responses. A seeded panel experiment independently scans
 all releases in six series-period groups for each of 40 decision times, including
 delayed and out-of-order receipts, and compares every snapshot to that oracle.
+
+## Candidate temporal policies and denominators
+
+public uses publication time; operator uses the latest supplied publication, receipt and processing clock. Inconsistent clocks are rejected. The cumulative set of eligible evidence is nested as time increases under fixed metadata. A latest-value snapshot is a projection of that set and its selected values may change. Corrections to historical metadata can invalidate prior reconstructions. Missing receipt times use the remaining declared clocks; this is not proof of actual delivery.
+
+Without a threshold the API omits signal inference (null signals). A decision may supply signal_at, order_at, execution_at, model and universe_audit. Chronology and session eligibility are separate controls. Report totals count decisions separately from individual tests. The earliest violation is ordered by decision time with source position breaking ties.
+
+The dataset manifest's format 2 hashes recursively tagged JSON-compatible values. Map keys are sorted, array order matters, datetimes normalize to UTC, and Decimal retains its textual precision. Strings, timestamps, integers, decimals and floats are distinct. A separate fingerprint summarizes observed top-level column names and runtime types. Schema inference on empty input cannot recover a declared external schema. Report hashes include Python version and OS family; changing these can change the digest.
+
+Sample revision variance uses n-1. Quantiles interpolate ordered revisions at (n-1)p. Relative revisions have the previous level as denominator; zero yields null. Cross-series correlation pairs only matching instants. No IID bootstrap or news/noise decomposition is inferred from sparse dependent vintages. Splits use new/old shares, dividend factors require matching currency and share basis. Arithmetic uses the caller's Decimal context and tolerance in price units. Historical schedules refer to published continuous trading hours; auction products may differ. See [HKEX](https://www.hkex.com.hk/Services/Trading-hours-and-Severe-Weather-Arrangements/Trading-Hours/Securities-Market) and [JPX](https://www.jpx.co.jp/english/systems/equities-trading/).

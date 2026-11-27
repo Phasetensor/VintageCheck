@@ -2,7 +2,8 @@ name: Consolidation evidence
 on:
   push:
     branches: [scientific-consolidation]
-    paths: ['vintagecheck/**', 'benchmarks/**', '.github/workflows/science.yml', 'tests/**']
+  pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -32,21 +33,31 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install '.[large,tables,calendars]' coverage hypothesis ruff mypy build twine scikit-learn curvemetric==1.5.0
-      - name: Collect formatter output for source maintenance
-        run: |
-          mkdir -p /tmp/vcformat
-          cp -r vintagecheck /tmp/vcformat/
-          ruff check --exit-zero --fix --unsafe-fixes --target-version py39 /tmp/vcformat/vintagecheck
-          ruff format --target-version py39 /tmp/vcformat/vintagecheck
-          python - <<'PYCODE'
-          import base64, pathlib
-          for path in pathlib.Path("/tmp/vcformat/vintagecheck").glob("*.py"):
-              print("FORMATTED",path.name,base64.b64encode(path.read_bytes()).decode())
-          PYCODE
       - run: python -m benchmarks.case_studies
       - run: cat benchmarks/evidence/cases.json
       - run: coverage run --source=vintagecheck --branch -m unittest discover -s tests -v && coverage json -o benchmarks/evidence/coverage.json
-      - run: python -m build && python -m twine check --strict dist/* && sha256sum dist/*
+      - name: Build and verify release candidate distributions
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+          sha256sum dist/* | tee benchmarks/evidence/distributions.sha256
+          python - <<'PYCODE'
+          import glob,tarfile,zipfile
+          with zipfile.ZipFile(glob.glob("dist/*.whl")[0]) as z:
+              assert "vintagecheck/py.typed" in z.namelist()
+          with tarfile.open(glob.glob("dist/*.tar.gz")[0]) as t:
+              assert any(n.endswith("/benchmarks/consolidation.py") for n in t.getnames())
+          PYCODE
+          root=$PWD
+          python -m venv /tmp/vc-clean
+          /tmp/vc-clean/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/vc-clean/bin/python "$root/examples/research_audit.py"
+          /tmp/vc-clean/bin/vintagecheck "$root/examples/releases.csv" "$root/examples/decisions.csv" --threshold 1.5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-distributions
+          path: dist/
       - uses: actions/upload-artifact@v4
         with:
           name: case-studies-and-coverage
@@ -64,3 +75,17 @@ jobs:
         run: ruff check vintagecheck && ruff format --check vintagecheck
       - if: always()
         run: mypy --ignore-missing-imports --check-untyped-defs vintagecheck
+  core:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install .
+      - run: python -m unittest discover -s tests -v
+      - run: python -m examples.research_audit
