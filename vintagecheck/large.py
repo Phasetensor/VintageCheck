@@ -1,8 +1,12 @@
 """Stream Parquet decisions through the existing vintage audit."""
+from __future__ import annotations
+from typing import Any, Iterable, Iterator, Optional, Union
+from ._types import Numeric, Row
+from pathlib import Path
 from . import audit, VintageIndex
 
 
-def parquet_batches(path, backend="pyarrow", batch_size=65536):
+def parquet_batches(path: Union[str, Path], backend: str="pyarrow", batch_size: int=65536) -> Iterator[list[Row]]:
     if batch_size < 1:
         raise ValueError("Expected a positive batch size")
     if backend == "pyarrow":
@@ -25,7 +29,7 @@ def parquet_batches(path, backend="pyarrow", batch_size=65536):
         raise ValueError("Unknown backend")
 
 
-def audit_parquet(releases, path, threshold, **options):
+def audit_parquet(releases: Any, path: Union[str, Path], threshold: Optional[Numeric], **options: Any) -> Iterator[Row]:
     """Yield batch reports with global source row numbers; releases reside in memory."""
     index = releases if isinstance(releases, VintageIndex) else VintageIndex(releases)
     offset = 0
@@ -37,3 +41,18 @@ def audit_parquet(releases, path, threshold, **options):
             report["first_future_row"] += offset
         yield report
         offset += len(batch)
+
+
+def summarize_batches(reports: Iterable[Row]) -> Row:
+    """Merge batch counts and earliest chronological violation without retaining decisions."""
+    from . import instant
+    counts = dict(PASS=0, FAIL=0, UNKNOWN=0)
+    first = None
+    for report in reports:
+        for verdict in counts:
+            counts[verdict] += report["summary"][verdict]
+        for row in report["decisions"]:
+            if row["verdict"] == "FAIL":
+                candidate = instant(row["decision_at"]), row["decision_row"]
+                first = candidate if first is None else min(candidate, first)
+    return dict(counts, records=sum(counts.values()), first_future_row=first[1] if first else None)

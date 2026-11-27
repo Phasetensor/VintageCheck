@@ -32,6 +32,17 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install '.[large,tables,calendars]' coverage hypothesis ruff mypy build twine scikit-learn curvemetric==1.5.0
+      - name: Collect formatter output for source maintenance
+        run: |
+          mkdir -p /tmp/vcformat
+          cp -r vintagecheck /tmp/vcformat/
+          ruff check --fix --unsafe-fixes /tmp/vcformat/vintagecheck
+          ruff format /tmp/vcformat/vintagecheck
+          python - <<'PYCODE'
+          import base64, pathlib
+          for path in pathlib.Path("/tmp/vcformat/vintagecheck").glob("*.py"):
+              print("FORMATTED",path.name,base64.b64encode(path.read_bytes()).decode())
+          PYCODE
       - run: python -m benchmarks.case_studies
       - run: cat benchmarks/evidence/cases.json
       - run: coverage run --source=vintagecheck --branch -m unittest discover -s tests -v && coverage json -o benchmarks/evidence/coverage.json

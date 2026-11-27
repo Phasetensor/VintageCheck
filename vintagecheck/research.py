@@ -1,4 +1,8 @@
 """Reproducible dataset, lineage, validation and reporting operations."""
+from __future__ import annotations
+from typing import Any, Iterable, Iterator, Optional, Union
+from ._types import Clock, Numeric, Row
+from . import VintageIndex
 import hashlib
 import json
 from datetime import date, datetime, timedelta
@@ -43,10 +47,10 @@ def _typed(value):
     return [type(value).__name__,value]
 
 
-def dataset_version(rows, key):
+def dataset_version(rows: Any, key: str) -> Row:
     """Content-address a JSON dataset using a unique string primary key."""
     fingerprints = {}
-    schema = set()
+    schema: set[tuple[str,str]] = set()
     for row in rows:
         identity = row[key]
         if not isinstance(identity, str) or not identity or identity in fingerprints:
@@ -56,7 +60,7 @@ def dataset_version(rows, key):
     return dict(format=2,key=key, schema_sha256=_digest(sorted(schema)), sha256=_digest([key, fingerprints]), rows=fingerprints)
 
 
-def compare_versions(before, after):
+def compare_versions(before: Row, after: Row) -> Row:
     if before["key"] != after["key"]:
         raise ValueError("Incompatible primary keys")
     a, b = before["rows"], after["rows"]
@@ -66,8 +70,8 @@ def compare_versions(before, after):
 
 class Lineage:
     """Inspect declared transformation dependencies and availability including fitting."""
-    def __init__(self, nodes):
-        self.nodes = {}
+    def __init__(self, nodes: Iterable[Row]) -> None:
+        self.nodes: dict[str,Row] = {}
         for row in nodes:
             key = row["id"]
             if key in self.nodes:
@@ -77,14 +81,14 @@ class Lineage:
         graph = {k: v["parents"] for k, v in self.nodes.items()}
         self.order = tuple(TopologicalSorter(graph).static_order())
 
-    def trace(self, outputs):
+    def trace(self, outputs: Iterable[str]) -> list[str]:
         needed = set(outputs)
         for key in reversed(self.order):
             if key in needed and key in self.nodes:
                 needed.update(self.nodes[key]["parents"])
         return sorted(needed)
 
-    def check(self, outputs, decision_at):
+    def check(self, outputs: Iterable[str], decision_at: Clock) -> Row:
         outputs = tuple(outputs)
         when = instant(decision_at)
         missing, future, conflicts = [], [], []
@@ -110,12 +114,12 @@ class Lineage:
                     dependencies=edges, conflicts=conflicts)
 
 
-def audit_pipeline(nodes, decisions):
+def audit_pipeline(nodes: Iterable[Row], decisions: Any) -> list[Row]:
     graph = Lineage(nodes)
     return [dict(id=r["id"], **graph.check(r["features"], r["decision_at"])) for r in decisions]
 
 
-def audit_backtest(releases, decisions, threshold=None, nodes=(), *, sessions=None):
+def audit_backtest(releases: Any, decisions: Any, threshold: Optional[Numeric]=None, nodes: Iterable[Row]=(), *, sessions: Any=None) -> Row:
     """Combine decision vintage and feature evidence, applying FAIL precedence."""
     graph = Lineage(nodes)
     result = audit(releases, decisions, threshold)
@@ -145,7 +149,7 @@ def audit_backtest(releases, decisions, threshold=None, nodes=(), *, sessions=No
     return result
 
 
-def temporal_folds(samples, windows, *, embargo=timedelta(0), walk_forward=True, train_window=None):
+def temporal_folds(samples: Iterable[Row], windows: Iterable[tuple[Clock, Clock]], *, embargo: timedelta=timedelta(0), walk_forward: bool=True, train_window: Optional[timedelta]=None) -> Iterator[Row]:
     """Purge overlapping closed label intervals; embargo follows each test window."""
     if embargo < timedelta(0):
         raise ValueError("Embargo must be nonnegative")
@@ -174,7 +178,7 @@ def temporal_folds(samples, windows, *, embargo=timedelta(0), walk_forward=True,
         yield dict(train=train, test=test)
 
 
-def revision_statistics(index, series, period):
+def revision_statistics(index: VintageIndex, series: str, period: str) -> Row:
     rows = index.revisions(series, period)
     delta = [number(r["delta"]) for r in rows[1:]]
     ordered = sorted(delta)
@@ -206,7 +210,7 @@ def _corr(x,y):
     return str(sum((n-a)*(m-b) for n,m in zip(x,y))/denom) if denom else None
 
 
-def revision_correlation(index, left, right):
+def revision_correlation(index: VintageIndex, left: tuple[str,str], right: tuple[str,str]) -> Row:
     def series(key):
         return {instant(r["available_at"]):number(r["delta"]) for r in index.revisions(*key) if r["delta"] is not None}
     a,b=series(left),series(right)
@@ -214,12 +218,12 @@ def revision_correlation(index, left, right):
     return dict(pairs=len(overlap), correlation=_corr([a[t] for t in overlap],[b[t] for t in overlap]))
 
 
-def information_set(index, at, keys):
+def information_set(index: VintageIndex, at: Clock, keys: Iterable[tuple[str, str]]) -> list[Row]:
     """Preserve explicit missing members of a requested information set."""
     return [dict(series=s, period=p, evidence=index.asof(s,p,at)) for s,p in keys]
 
 
-def compare_providers(left, right, at, keys, *, tolerance=0, relative_tolerance=0, required_metadata=()):
+def compare_providers(left: VintageIndex, right: VintageIndex, at: Clock, keys: Iterable[tuple[str, str]], *, tolerance: Numeric=0, relative_tolerance: Numeric=0, required_metadata: Iterable[str]=()) -> list[Row]:
     tol = number(tolerance)
     rel = number(relative_tolerance)
     if min(tol,rel) < 0:
@@ -240,7 +244,7 @@ def compare_providers(left, right, at, keys, *, tolerance=0, relative_tolerance=
     return result
 
 
-def scientific_report(audit_result, *, dataset_versions, parameters, output="python", limitations=()):
+def scientific_report(audit_result: Row, *, dataset_versions: Any, parameters: Row, output: str="python", limitations: Iterable[str]=()) -> Union[Row, str]:
     """Hash the full JSON evidence, method version, input manifests and parameters."""
     from . import __version__ as software
     controls=[v for r in audit_result.get("decisions",[]) for v in r.get("controls",{"vintage":r["verdict"]}).values()]

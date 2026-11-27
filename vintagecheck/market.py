@@ -1,15 +1,20 @@
 """Historical universes, corporate actions, releases and trading sessions."""
+from __future__ import annotations
+from typing import Any, Iterable, Optional
+from ._types import Clock, Numeric, Row
 from bisect import bisect_right
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from . import instant, number
 
 
-def audit_universe(memberships, holdings, at, *, complete=False):
+def audit_universe(memberships: Iterable[Row], holdings: Iterable[str], at: Clock, *, complete: Optional[bool]=False, current: Optional[Iterable[str]]=None) -> Row:
     """Compare an entire claimed universe with half-open membership intervals."""
     when = instant(at)
+    tickers = {}
+    exits = {}
     effective, expected, hidden = set(), set(), set()
     for row in memberships:
         start = instant(row["start"])
@@ -21,6 +26,12 @@ def audit_universe(memberships, holdings, at, *, complete=False):
             effective.add(asset)
         known = max((instant(row[k]) for k in ("announced_at","available_at") if row.get(k)), default=start)
         removal = instant(row["end_available_at"]) if row.get("end_available_at") else end
+        if known <= when:
+            aliases = [a for a in row.get("ticker_history",[]) if instant(a["start"])<=when and instant(a.get("available_at") or a["start"])<=when]
+            if aliases:
+                tickers[asset] = max(aliases,key=lambda a:instant(a["start"]))["ticker"]
+            if end and end <= when and removal <= when:
+                exits[asset] = row.get("exit_reason","unspecified")
         if start <= when and known <= when and (end is None or end > when or removal > when):
             expected.add(asset)
         elif asset in effective and known > when:
@@ -29,14 +40,14 @@ def audit_universe(memberships, holdings, at, *, complete=False):
     omitted = sorted(expected - actual)
     extra = sorted(actual - expected)
     verdict = "UNKNOWN"
-    if omitted or (complete and extra):
+    if omitted or (complete and set(extra)-hidden):
         verdict = "FAIL"
     elif complete and not hidden:
         verdict = "PASS"
-    return dict(verdict=verdict, omitted=omitted, unmatched=extra, effective=sorted(effective), knowable=sorted(expected), declared=sorted(actual))
+    return dict(verdict=verdict, omitted=omitted, unmatched=extra, effective=sorted(effective), knowable=sorted(expected), declared=sorted(actual), tickers=tickers, exits=exits, current=sorted(current) if current is not None else None)
 
 
-def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, *, tolerance="0.000001", complete=None, currency=None, share_basis=None):
+def audit_adjustment(raw_close: Numeric, adjusted_close: Numeric, actions: Iterable[Row], asset: str, price_at: Clock, asof: Clock, *, tolerance: Numeric="0.000001", complete: Optional[bool]=None, currency: Optional[str]=None, share_basis: Optional[str]=None) -> Row:
     """Validate backward price adjustment in a supplied complete single-currency ledger."""
     start, cutoff = instant(price_at), instant(asof)
     if cutoff < start or number(tolerance) < 0:
@@ -45,7 +56,7 @@ def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, 
         return dict(expected=None, action_ids=[], verdict="UNKNOWN", reason=reason)
     if complete is False:
         return unknown("incomplete_ledger")
-    selected = {}
+    selected: dict[str,Row] = {}
     for row in actions:
         if row["asset"] != asset:
             continue
@@ -64,16 +75,11 @@ def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, 
         selected[event] = row
     actions = sorted(selected.values(),key=lambda r:(instant(r["effective_at"]),r["id"]))
     factor = Decimal(1)
-    used, seen = [], set()
+    used = []
     for row in actions:
-        if row["asset"] != asset:
-            continue
         effective = instant(row["effective_at"])
-        if not start < effective <= cutoff or instant(row["available_at"]) > cutoff:
+        if not start < effective <= cutoff:
             continue
-        if row["id"] in seen:
-            raise ValueError("Duplicate action identifier")
-        seen.add(row["id"])
         if row["kind"] == "split":
             ratio = number(row["ratio"])
             if ratio <= 0:
@@ -96,10 +102,10 @@ def audit_adjustment(raw_close, adjusted_close, actions, asset, price_at, asof, 
                 verdict=("PASS" if complete is True else "UNKNOWN") if abs(expected-number(adjusted_close)) <= number(tolerance) else ("FAIL" if complete is True else "UNKNOWN"))
 
 
-def release_calendar(events, asof):
+def release_calendar(events: Iterable[Row], asof: Clock) -> list[Row]:
     """Latest known schedule per event, including cancellations and rescheduling."""
     when = instant(asof)
-    revisions = {}
+    revisions: dict[str,tuple[datetime,Row]] = {}
     seen = set()
     for row in events:
         event, known = row["id"], instant(row["announced_at"])
@@ -119,7 +125,7 @@ def release_calendar(events, asof):
 
 class MarketSessions:
     """Explicit dated sessions. Gaps inside certified coverage represent closures."""
-    def __init__(self, sessions, timezone, first_date, last_date):
+    def __init__(self, sessions: Any, timezone: str, first_date: str, last_date: str) -> None:
         self.zone = ZoneInfo(timezone)
         self.first, self.last = date.fromisoformat(first_date), date.fromisoformat(last_date)
         if self.first > self.last:
@@ -136,7 +142,7 @@ class MarketSessions:
         self._opens = [start for start, _ in self.sessions]
 
     @classmethod
-    def from_exchange(cls, exchange, first_date, last_date):
+    def from_exchange(cls, exchange: str, first_date: str, last_date: str) -> MarketSessions:
         """Load exchange sessions, holidays, early closes and intraday breaks."""
         import exchange_calendars as xc
         import pandas as pd
@@ -157,7 +163,7 @@ class MarketSessions:
                     intervals.append(dict(open=max(start, lower), close=min(end, upper)))
         return cls(intervals, str(calendar.tz), first_date, last_date)
 
-    def status(self, when):
+    def status(self, when: Clock) -> str:
         stamp = instant(when)
         day = stamp.astimezone(self.zone).date()
         if not self.first <= day <= self.last:

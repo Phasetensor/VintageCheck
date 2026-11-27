@@ -1,4 +1,7 @@
 """Point-in-time reconstruction and temporal evidence auditing."""
+from __future__ import annotations
+from typing import Any, Iterable, Optional
+from ._types import Clock, Numeric, Row
 from bisect import bisect_right
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -7,21 +10,21 @@ from hashlib import sha256
 import json
 
 
-def instant(value):
+def instant(value: Any) -> datetime:
     timestamp = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     if timestamp.utcoffset() is None:
         raise ValueError("Timestamp requires an explicit UTC offset")
     return timestamp.astimezone(timezone.utc)
 
 
-def number(value):
+def number(value: Any) -> Decimal:
     result = Decimal(str(value))
     if not result.is_finite():
         raise ValueError("Expected a finite number")
     return result
 
 
-def records(rows):
+def records(rows: Any) -> Iterable[Row]:
     if hasattr(rows, "to_dict") and hasattr(rows, "columns"):
         return rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
     return rows
@@ -30,11 +33,11 @@ def records(rows):
 class VintageIndex:
     """Immutable-by-convention release history indexed by series and period."""
 
-    def __init__(self, releases, *, policy="operator"):
+    def __init__(self, releases: Any, *, policy: str="operator") -> None:
         if policy not in ("operator","public"):
             raise ValueError("Unsupported availability policy")
         self.policy = policy
-        self._groups = defaultdict(dict)
+        self._groups: dict[tuple[str,str],dict[datetime,Row]] = defaultdict(dict)
         for raw in records(releases):
             row = dict(raw)
             key = row["series"], row["period"]
@@ -68,20 +71,20 @@ class VintageIndex:
                 winners.append(latest)
             self._times[key], self._winners[key] = times, winners
 
-    def lookup(self, series, period, available_at):
+    def lookup(self, series: str, period: str, available_at: Clock) -> Optional[Row]:
         row = self._groups.get((series, period), {}).get(instant(available_at))
         return dict(row) if row else None
 
-    def asof(self, series, period, decision_at):
+    def asof(self, series: str, period: str, decision_at: Clock) -> Optional[Row]:
         key = series, period
         pos = bisect_right(self._times.get(key, ()), instant(decision_at))
         return dict(self._groups[key][self._winners[key][pos - 1]]) if pos else None
 
-    def snapshot(self, decision_at):
+    def snapshot(self, decision_at: Clock) -> list[Row]:
         rows = (self.asof(*key, decision_at) for key in sorted(self._groups))
         return [row for row in rows if row is not None]
 
-    def revisions(self, series, period):
+    def revisions(self, series: str, period: str) -> list[Row]:
         previous = None
         changes = []
         for stamp, row in sorted(self._groups.get((series, period), {}).items()):
@@ -91,7 +94,7 @@ class VintageIndex:
         return changes
 
 
-def audit(releases, decisions, threshold=None):
+def audit(releases: Any, decisions: Any, threshold: Optional[Numeric]=None) -> Row:
     """PASS means accessible under the supplied clock and history."""
     threshold = number(threshold) if threshold is not None else None
     index = releases if isinstance(releases, VintageIndex) else VintageIndex(releases)
@@ -126,9 +129,9 @@ def audit(releases, decisions, threshold=None):
                             asof_buy=asof_buy, used_evidence=used, asof_evidence=latest,
                             signal_changed=(used_buy != asof_buy) if None not in (used_buy, asof_buy) else None))
     counts = Counter(row["verdict"] for row in results)
-    summary = {label: counts[label] for label in ("PASS", "FAIL", "UNKNOWN")}
+    summary: Row = {label: counts[label] for label in ("PASS", "FAIL", "UNKNOWN")}
     summary.update(records=len(results), percent_pass=100 * counts["PASS"] / len(results) if results else None)
     first = next((r["decision_row"] for r in results if r["verdict"] == "FAIL"), None)
     return {"first_future_row": first, "decisions": results, "summary": summary}
 
-__version__ = "0.3.0"
+__version__ = "0.4.0rc1"

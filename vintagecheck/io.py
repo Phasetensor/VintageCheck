@@ -1,4 +1,7 @@
 """File and ALFRED observations adapters."""
+from __future__ import annotations
+from typing import Any, Mapping, Union
+from ._types import Clock, Row
 import csv
 import json
 from datetime import date, datetime
@@ -7,7 +10,7 @@ from pathlib import Path
 from . import instant, number
 
 
-def read_rows(path):
+def read_rows(path: Union[str, Path]) -> list[Row]:
     path = Path(path)
     if path.suffix.lower() in (".parquet", ".pq"):
         import pyarrow.parquet as pq
@@ -16,7 +19,7 @@ def read_rows(path):
         return list(csv.DictReader(stream))
 
 
-def alfred_observations(series, payload, release_times):
+def alfred_observations(series: str, payload: Any, release_times: Mapping[str, Clock]) -> list[Row]:
     """Import a complete output_type=1 observations response with explicit release clocks.
 
     release_times maps realtime_start dates to verified offset-aware timestamps.
@@ -28,7 +31,7 @@ def alfred_observations(series, payload, release_times):
     rows = payload["observations"]
     if int(payload.get("offset", 0)) or int(payload.get("count", len(rows))) != len(rows):
         raise ValueError("Incomplete ALFRED response: combine all pages first")
-    intervals = {}
+    intervals: dict[str,list[tuple[date,date]]] = {}
     result = []
     for item in rows:
         start = date.fromisoformat(item["realtime_start"])
@@ -56,7 +59,7 @@ def alfred_observations(series, payload, release_times):
     return result
 
 
-def fetch_alfred(series, api_key, release_times, *, observation_start, observation_end):
+def fetch_alfred(series: str, api_key: str, release_times: Mapping[str, Clock], *, observation_start: str, observation_end: str) -> list[Row]:
     """Fetch all real-time periods for an explicitly bounded observation window."""
     from urllib.parse import urlencode
     from urllib.request import urlopen
@@ -70,7 +73,7 @@ def fetch_alfred(series, api_key, release_times, *, observation_start, observati
                   realtime_start="1776-07-04", realtime_end="9999-12-31",
                   observation_start=start.isoformat(), observation_end=end.isoformat(),
                   limit=100000, offset=0)
-    rows = []
+    rows: list[Row] = []
     expected = None
     while True:
         url = "https://api.stlouisfed.org/fred/series/observations?" + urlencode(params)
