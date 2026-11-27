@@ -32,10 +32,10 @@ class FinancialHistoryTests(unittest.TestCase):
         common = dict(asset="A", available_at=t(1), effective_at=t(2))
         actions = [dict(common, id="S",kind="split",ratio=2),
                    dict(common,id="D",kind="dividend",cash=2,previous_close=100)]
-        self.assertEqual(audit_adjustment(100,49,actions,"A",t(1),t(2))["verdict"],"PASS")
-        self.assertEqual(audit_adjustment(100,49,actions,"A",t(1),t(1))["verdict"],"FAIL")
+        self.assertEqual(audit_adjustment(100,49,actions,"A",t(1),t(2),complete=True)["verdict"],"PASS")
+        self.assertEqual(audit_adjustment(100,49,actions,"A",t(1),t(1),complete=True)["verdict"],"FAIL")
         actions[0]["available_at"] = t(4)
-        self.assertEqual(audit_adjustment(100,98,actions,"A",t(1),t(2))["action_ids"],["D"])
+        self.assertEqual(audit_adjustment(100,98,actions,"A",t(1),t(2),complete=True)["action_ids"],["D"])
 
     def test_release_calendar(self):
         a = dict(id="CPI", announced_at=t(1), scheduled_at=t(4))
