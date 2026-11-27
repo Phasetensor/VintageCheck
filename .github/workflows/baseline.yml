@@ -1,0 +1,27 @@
+name: Scientific baseline
+on:
+  push:
+    branches: [scientific-consolidation]
+    paths: ['.github/workflows/baseline.yml']
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 245a3aaaca2961fc63795f26a7bfb41754125fe1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install '.[large,tables,calendars]' coverage ruff mypy curvemetric==1.5.0
+      - run: |
+          coverage run --branch --source=vintagecheck -m unittest discover -s tests -v
+          coverage json -o /tmp/coverage.json
+          python -c "import json; print('BASELINE',json.load(open('/tmp/coverage.json'))['totals'])"
+          ruff check vintagecheck --statistics || echo "BASELINE lint failures"
+          ruff format --check vintagecheck || echo "BASELINE format failures"
+          mypy --check-untyped-defs --ignore-missing-imports vintagecheck || echo "BASELINE typing failures"
+          python -m pip download --no-deps vintagecheck==0.3.0
+          python -c "import curvemetric,importlib.metadata as m; print('CurveMetric',m.version('curvemetric'))"
