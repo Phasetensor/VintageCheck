@@ -1,4 +1,48 @@
 {
+  "historical_curve": {
+    "source": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?field_tdr_date_value_month=202405&type=daily_treasury_bill_rates",
+    "clock_policy": "synthetic next UTC day plus five-minute receipt",
+    "valuation": "2024-05-02T12:00:00Z",
+    "eligible": {
+      "ids": [
+        "2024-05-01-4",
+        "2024-05-01-13",
+        "2024-05-01-26"
+      ],
+      "pv": 97.38627777777778,
+      "parallel_one_bp_pv_change": -0.0048558522381796365
+    },
+    "contaminated": {
+      "ids": [
+        "2024-05-02-4",
+        "2024-05-02-13",
+        "2024-05-02-26"
+      ],
+      "pv": 97.39133333333334,
+      "parallel_one_bp_pv_change": -0.004856104317127574
+    },
+    "zero_bp": {
+      "mae": 1.0288897792024947,
+      "rmse": 1.0289331254942922,
+      "max_abs": 1.0410733382885256,
+      "l1": 0.43440574606648974,
+      "l2": 0.668799002658825
+    },
+    "manifest": {
+      "format": 2,
+      "key": "id",
+      "schema_sha256": "9997a3e3597a3809ad70139a763146b4c1ea0c6c41899ee331a6ae3afd682b3b",
+      "sha256": "6323a7d066c59b7e14b2c432ee1ee47a7f07bc8232383b68eb19f8c97a5d0f80",
+      "rows": {
+        "2024-05-01-4": "79cd2c7268141d78e94f0beb6f01718f5d226b0d09bfda311d957e61f2d233a2",
+        "2024-05-01-13": "a46b579ee579b1fb434750b03ba02d10c40511e7025836b56af016e9bf0ba9be",
+        "2024-05-01-26": "65e1de7c4c229a5a005168e6e2702973f007c9f5c1beadf94dba626f3c144636",
+        "2024-05-02-4": "7aa7e94aeb8547b1a9e968eb205843d2d1ce55a955c2fac12b45f844e0e99241",
+        "2024-05-02-13": "f6f5b674734133773efba5d15ce3f20625fe48303e4dc111440d84a82428bd66",
+        "2024-05-02-26": "edc5e3d6cd5047e3135e568d5755b6917a13e2a7d349afa6f2ddaca43e705c7d"
+      }
+    }
+  },
   "macro": {
     "data": "BEA real; decisions synthetic",
     "report": {
@@ -94,7 +138,10 @@
       ],
       "declared": [
         "B"
-      ]
+      ],
+      "tickers": {},
+      "exits": {},
+      "current": null
     },
     "historical_mean": -0.05,
     "current_mean": 0.1
@@ -117,14 +164,14 @@
   "curve": {
     "data": "synthetic",
     "provider": "curvemetric 1.5.0",
-    "eligible_pv": 88.24969025845954,
+    "eligible_pv": 88.24969025845955,
     "contaminated_pv": 81.87307530779819,
     "diagnostics": {
-      "mae": 49.99999999999999,
-      "rmse": 86.60254037844385,
-      "max_abs": 149.99999999999997,
-      "l1": 149.99999999999997,
-      "l2": 149.99999999999997
+      "mae": 50.000000000000064,
+      "rmse": 86.60254037844398,
+      "max_abs": 150.0000000000002,
+      "l1": 150.0000000000002,
+      "l2": 150.0000000000002
     },
     "manifest": {
       "format": 2,
