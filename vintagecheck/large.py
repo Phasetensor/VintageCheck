@@ -14,8 +14,9 @@ def parquet_batches(path, backend="pyarrow", batch_size=65536):
         import duckdb
         with duckdb.connect() as con:
             cursor = con.execute("SELECT * FROM read_parquet(?)", [str(path)])
-            for batch in cursor.fetch_record_batch(batch_size):
-                yield batch.to_pylist()
+            columns = [field[0] for field in cursor.description]
+            while batch := cursor.fetchmany(batch_size):
+                yield [dict(zip(columns, row)) for row in batch]
     elif backend == "polars":
         import polars as pl
         for frame in pl.scan_parquet(path).collect_batches(chunk_size=batch_size, maintain_order=True):
