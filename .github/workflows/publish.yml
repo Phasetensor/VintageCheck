@@ -128,6 +128,8 @@ jobs:
             sleep "$delay"
             python -m pip install --no-cache-dir --index-url https://pypi.org/simple "vintagecheck==${version#vintagecheck-}" && break
           done
-          python -c "from vintagecheck.large import audit_parquet; from vintagecheck.market import MarketSessions; from vintagecheck.research import audit_backtest"
+          python -c "import importlib.metadata as m; assert m.version('vintagecheck') == '${version#vintagecheck-}'; from vintagecheck.large import audit_parquet; from vintagecheck.market import MarketSessions; from vintagecheck.research import audit_backtest"
+          python "$GITHUB_WORKSPACE/examples/research_audit.py" > research-audit.json
+          sha256sum "$GITHUB_WORKSPACE"/dist/*
           vintagecheck "$GITHUB_WORKSPACE/examples/releases.csv" "$GITHUB_WORKSPACE/examples/decisions.csv" --threshold 1.5 > audit.json
           python -c "import json; r=json.load(open('audit.json')); assert r['summary']['FAIL']==1 and r['first_future_row']==1"

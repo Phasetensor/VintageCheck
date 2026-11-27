@@ -1,6 +1,6 @@
 # Scientific release candidate 0.4.0rc1
 
-The implementation tested at 9ca4a654dfe2683d6b69e55380c2bd353837f2c5 is on scientific-consolidation. All eleven jobs passed in [run 46012623371](https://github.com/Phasetensor/VintageCheck/actions/runs/46012623371). The public release remains 0.3.0. Final owner approval, a final-version build, tag, Trusted Publishing and verification of public bytes are pending.
+The implementation tested at 9ca4a654dfe2683d6b69e55380c2bd353837f2c5 is on scientific-consolidation. All eleven jobs passed in [run 46012623371](https://github.com/Phasetensor/VintageCheck/actions/runs/46012623371). These results document the candidate. Version 0.4.0 was approved for release. The final distribution hashes are recorded in the release workflow.
 
 | Check | Measured result |
 |---|---|

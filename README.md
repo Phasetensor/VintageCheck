@@ -25,6 +25,6 @@ requirements and reproducible benchmarks.
 
 Version 0.3 adds historical universe and price-adjustment audits, feature lineage, temporal validation, exchange calendars, reproducible reports and streaming Parquet backends. See the [15-module API guide](docs/advanced.md) and [worked audit](examples/research_audit.py).
 
-## Scientific consolidation candidate
+## VintageCheck 0.4.0
 
-The branch includes the [fifteen-module evidence matrix](docs/traceability.md), [reproducible benchmarks and case studies](benchmarks/README.md) and [release conditions](docs/release.md). Existing published versions are listed on PyPI.
+Version 0.4.0 includes the [fifteen-module evidence matrix](docs/traceability.md), [reproducible benchmarks and case studies](benchmarks/README.md) and [release conditions](docs/release.md). Existing published versions are listed on PyPI.

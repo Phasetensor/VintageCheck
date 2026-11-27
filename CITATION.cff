@@ -4,6 +4,6 @@ title: VintageCheck
 type: software
 authors:
   - name: PhaseTensor
-version: 0.4.0rc1
+version: 0.4.0
 license: Apache-2.0
 repository-code: "https://github.com/Phasetensor/VintageCheck"

@@ -185,4 +185,4 @@ def audit(releases: Any, decisions: Any, threshold: Numeric | None = None) -> Ro
     return {"first_future_row": first, "decisions": results, "summary": summary}
 
 
-__version__ = "0.4.0rc1"
+__version__ = "0.4.0"

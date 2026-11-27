@@ -1,6 +1,6 @@
 # Evidence matrix
 
-The package exposes row-oriented Python APIs. The public baseline is 0.3.0. Every extension below is a release candidate. Tests demonstrate the listed cases only. All test names below refer to the tests directory. Use python -m unittest discover -s tests -v with the optional dependencies installed. See docs/advanced.md for interface signatures and benchmarks/case_studies.py for the runnable research examples.
+The package exposes row-oriented Python APIs. The matrix covers the consolidation of the 0.3.0 baseline in version 0.4.0. Tests demonstrate the listed cases only. All test names below refer to the tests directory. Use python -m unittest discover -s tests -v with the optional dependencies installed. See docs/advanced.md for interface signatures and benchmarks/case_studies.py for the runnable research examples.
 
 | Capability and objective | API and implementation | Scientific check and test | Evidence status and scope |
 |---|---|---|---|
