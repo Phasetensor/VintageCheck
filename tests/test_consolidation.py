@@ -167,3 +167,24 @@ class ConsolidationTests(unittest.TestCase):
         for page in (dict(count=2,offset=1,observations=[]),dict(count=1,offset=0,observations=[])):
             with patch("urllib.request.urlopen",return_value=io.BytesIO(json.dumps(page).encode())),self.assertRaises(ValueError):
                 fetch("test")
+
+    def test_evidence_conflicts(self):
+        graph=Lineage([dict(id="pca",available_at=T[1],fit_data_end=T[0],fitted=True,fit_partition="test")])
+        self.assertEqual(graph.check(["pca"],T[4])["conflicts"],["pca"])
+        with self.assertRaises(ValueError):
+            compare_versions({"format":1},{"format":2})
+        with self.assertRaises(ValueError):
+            release_calendar([dict(id="c",scheduled_at=T[0],announced_at=T[0],actual_at=T[2],received_at=T[1])],T[3])
+        r=dict(id="s",asset="X",kind="split",effective_at=T[1],available_at=T[0],ratio=2,revision=1)
+        with self.assertRaises(ValueError):
+            audit_adjustment(4,2,[r,dict(r,revision=2),r],"X",T[0],T[2],complete=True)
+
+    def test_stable_identifier_ticker_and_merger(self):
+        m=dict(asset="OLD",security_id="stable",start=T[1],announced_at=T[0],end=T[4],
+               exit_reason="acquired",ticker_history=[dict(ticker="OLD",start=T[1]),dict(ticker="NEW",start=T[3])])
+        for pos,ticker in [(1,"OLD"),(3,"NEW")]:
+            result=audit_universe([m],["stable"],T[pos],complete=True,current=[])
+            self.assertEqual(result["tickers"]["stable"],ticker)
+            self.assertEqual(result["knowable"],["stable"])
+        self.assertEqual(audit_universe([m],[],T[5])["exits"],{"stable":"acquired"})
+        self.assertEqual(audit_universe([m],[],T[0])["effective"],[])

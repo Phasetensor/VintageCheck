@@ -39,7 +39,10 @@ def treasury_curve():
         curves.append(curve)
         pv=float(present_value(curve,[years[-1]],[100]))
         assert abs(pv-100*dfs[-1])<1e-10
-        results.append(dict(ids=[r["id"] for r in rows],pv=pv))
+        bumped=Curve.from_zero_rates(years,[r+.0001 for r in rates])
+        pv01=float(present_value(bumped,[years[-1]],[100]))-pv
+        assert abs(pv01-pv*(exp(-.0001*years[-1])-1))<1e-10
+        results.append(dict(ids=[r["id"] for r in rows],pv=pv,parallel_one_bp_pv_change=pv01))
     assert all(x.startswith("2024-05-01") for x in results[0]["ids"])
     return dict(source=source,clock_policy="synthetic next UTC day plus five-minute receipt",valuation=times[0],
                 eligible=results[0],contaminated=results[1],zero_bp=compare(*curves,years)["metrics"]["zero_bp"],

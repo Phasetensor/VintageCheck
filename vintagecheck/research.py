@@ -76,6 +76,8 @@ def dataset_version(rows: Any, key: str) -> Row:
 
 
 def compare_versions(before: Row, after: Row) -> Row:
+    if before.get("format", 1) != after.get("format", 1):
+        raise ValueError("Rehash both datasets with the same manifest format")
     if before["key"] != after["key"]:
         raise ValueError("Incompatible primary keys")
     a, b = before["rows"], after["rows"]
@@ -139,6 +141,8 @@ class Lineage:
                     if t
                 ):
                     conflicts.append(key)
+                if "test" in (row.get("fit_partition"), row.get("tuning_partition")):
+                    conflicts.append(key)
                 if row.get("provenance_complete") is False:
                     missing.append(key)
                 if row.get("fitted") and not row.get("fit_data_end"):
@@ -161,7 +165,7 @@ class Lineage:
             "missing": sorted(set(missing)),
             "trace": trace,
             "dependencies": edges,
-            "conflicts": conflicts,
+            "conflicts": sorted(set(conflicts)),
         }
 
 

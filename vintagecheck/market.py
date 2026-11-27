@@ -112,6 +112,7 @@ def audit_adjustment(
     if complete is False:
         return unknown("incomplete_ledger")
     selected: dict[str, Row] = {}
+    versions = set()
     for row in actions:
         if row["asset"] != asset:
             continue
@@ -124,6 +125,10 @@ def audit_adjustment(
         if known > cutoff:
             continue
         event = row["id"]
+        version = (event, row.get("revision"))
+        if version in versions:
+            raise ValueError("Duplicate action revision")
+        versions.add(version)
         if event in selected:
             older = selected[event]
             if (
@@ -187,6 +192,13 @@ def release_calendar(events: Iterable[Row], asof: Clock) -> list[Row]:
             raise ValueError("Ambiguous schedule revision")
         seen.add((event, known))
         if known <= when and (event not in revisions or known > revisions[event][0]):
+            realized = [
+                instant(row[k])
+                for k in ("actual_at", "received_at", "ingested_at")
+                if row.get(k)
+            ]
+            if realized != sorted(realized):
+                raise ValueError("Realized publication clocks are out of order")
             visible = dict(row)
             for field in ("actual_at", "received_at", "ingested_at"):
                 if visible.get(field) and instant(visible[field]) > when:

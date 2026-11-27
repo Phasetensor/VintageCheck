@@ -68,3 +68,17 @@ class Oracles(unittest.TestCase):
             for backend in ("pyarrow","duckdb","polars"):
                 with self.assertRaises(ValueError):
                     list(parquet_batches(p,backend))
+
+    @unittest.skipUnless(find_spec("numpy"),"independent statistics")
+    def test_numpy_revision_oracle(self):
+        import numpy as np
+        from vintagecheck.research import revision_statistics
+        vals=[1,4,-1,15,2,9]
+        idx=VintageIndex([dict(series="X",period="Q",available_at=f"2024-02-0{i+1}T00:00:00Z",value=x) for i,x in enumerate(vals)])
+        stats=revision_statistics(idx,"X","Q")
+        diff=np.diff(vals)
+        for key,expected in [("mean",np.mean(diff)),("variance",np.var(diff,ddof=1)),("std",np.std(diff,ddof=1)),
+                             ("rms",np.sqrt(np.mean(diff**2))),("autocorrelation",np.corrcoef(diff[:-1],diff[1:])[0,1])]:
+            self.assertAlmostEqual(float(stats[key]),float(expected))
+        for q,val in stats["quantiles"].items():
+            self.assertAlmostEqual(float(val),float(np.quantile(diff,float(q))))

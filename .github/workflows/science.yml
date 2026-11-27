@@ -20,11 +20,13 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install '.[large,tables]'
       - run: python -m benchmarks.consolidation --backend ${{ matrix.backend }}
-      - run: cat benchmarks/evidence/*.json
+      - run: cat "benchmarks/evidence/${{ matrix.backend }}.json"
       - uses: actions/upload-artifact@v4
         with:
           name: measurements-${{ matrix.backend }}
-          path: benchmarks/evidence/
+          path: |
+            benchmarks/evidence/${{ matrix.backend }}.csv
+            benchmarks/evidence/${{ matrix.backend }}.json
   validation:
     runs-on: ubuntu-latest
     steps:
