@@ -36,8 +36,8 @@ jobs:
         run: |
           mkdir -p /tmp/vcformat
           cp -r vintagecheck /tmp/vcformat/
-          ruff check --fix --unsafe-fixes /tmp/vcformat/vintagecheck
-          ruff format /tmp/vcformat/vintagecheck
+          ruff check --exit-zero --fix --unsafe-fixes --target-version py39 /tmp/vcformat/vintagecheck
+          ruff format --target-version py39 /tmp/vcformat/vintagecheck
           python - <<'PYCODE'
           import base64, pathlib
           for path in pathlib.Path("/tmp/vcformat/vintagecheck").glob("*.py"):

@@ -30,9 +30,9 @@ def audit_universe(memberships: Iterable[Row], holdings: Iterable[str], at: Cloc
             aliases = [a for a in row.get("ticker_history",[]) if instant(a["start"])<=when and instant(a.get("available_at") or a["start"])<=when]
             if aliases:
                 tickers[asset] = max(aliases,key=lambda a:instant(a["start"]))["ticker"]
-            if end and end <= when and removal <= when:
+            if end and removal and end <= when and removal <= when:
                 exits[asset] = row.get("exit_reason","unspecified")
-        if start <= when and known <= when and (end is None or end > when or removal > when):
+        if start <= when and known <= when and (end is None or end > when or (removal and removal > when)):
             expected.add(asset)
         elif asset in effective and known > when:
             hidden.add(asset)

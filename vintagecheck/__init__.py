@@ -85,10 +85,10 @@ class VintageIndex:
         return [row for row in rows if row is not None]
 
     def revisions(self, series: str, period: str) -> list[Row]:
-        previous = None
+        previous: Optional[Row] = None
         changes = []
         for stamp, row in sorted(self._groups.get((series, period), {}).items()):
-            delta = None if previous is None else str(number(row["value"]) - number(previous["value"]))
+            delta: Optional[str] = None if previous is None else str(number(row["value"]) - number(previous["value"]))
             changes.append(dict(row, delta=delta, previous_sha256=previous["record_sha256"] if previous else None))
             previous = row
         return changes
@@ -107,7 +107,7 @@ def audit(releases: Any, decisions: Any, threshold: Optional[Numeric]=None) -> R
     ordered.sort(key=lambda item: (item[0] is None, item[0]))
     results = []
     for when, n, row in ordered:
-        key = row.get("series"), row.get("period")
+        key = row.get("series") or "", row.get("period") or ""
         used = index.lookup(*key, row["used_available_at"]) if row.get("used_available_at") else None
         latest = index.asof(*key, when) if when else None
         if when is None:

@@ -199,7 +199,7 @@ def revision_statistics(index: VintageIndex, series: str, period: str) -> Row:
                 count=len(delta), mean=str(mean(delta)) if delta else None,
                 median=str(median(delta)) if delta else None,
                 mean_absolute=str(mean(map(abs,delta))) if delta else None,
-                rms=str((sum(x*x for x in delta)/len(delta)).sqrt()) if delta else None)
+                rms=str((sum((x*x for x in delta),Decimal(0))/len(delta)).sqrt()) if delta else None)
 
 
 def _corr(x,y):
@@ -238,7 +238,7 @@ def compare_providers(left: VintageIndex, right: VintageIndex, at: Clock, keys: 
         mismatches = sorted(k for k in fields if not a or not b or a.get(k) is None or a.get(k)!=b.get(k))
         if mismatches:
             diff = None
-        verdict = "UNKNOWN" if diff is None else "PASS" if abs(diff)<=tol+rel*max(abs(number(a["value"])),abs(number(b["value"]))) else "FAIL"
+        verdict = "UNKNOWN" if diff is None or a is None or b is None else "PASS" if abs(diff)<=tol+rel*max(abs(number(a["value"])),abs(number(b["value"]))) else "FAIL"
         result.append(dict(series=s, period=p, left=a, right=b, verdict=verdict,
                            delta=str(diff) if diff is not None else None, incompatible=mismatches))
     return result
